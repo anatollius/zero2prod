@@ -1,7 +1,6 @@
 use sqlx::PgPool;
 use std::io::Result;
 use std::net::TcpListener;
-use tokio;
 use zero2prod::configuration::get_configuration;
 use zero2prod::startup::run;
 
