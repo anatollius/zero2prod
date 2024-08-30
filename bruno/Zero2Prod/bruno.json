@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Zero2Prod",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

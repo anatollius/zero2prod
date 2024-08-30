@@ -1,0 +1,16 @@
+meta {
+  name: subscribe
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{API_URL}}/subscriptions
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  email: jane_doe@hotmail.com
+  name: Jane Doe
+}
