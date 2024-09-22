@@ -1,0 +1,8 @@
+doctl apps create --spec spec.yaml
+
+// Migrate Database
+// 1. Disable trusted sources
+https://docs.digitalocean.com/products/databases/postgresql/how-to/secure/
+doctl databases firewalls append <database-cluster-id> --rule <type>:<value> [flags]
+
+DATABASE_URL=<DB-CONNECTION-STRING> sqlx migrate run
