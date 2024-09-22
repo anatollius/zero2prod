@@ -3,6 +3,7 @@ use chrono::Utc;
 use serde;
 use sqlx;
 use sqlx::PgPool;
+use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
@@ -20,10 +21,24 @@ pub struct FormData {
     )
 )]
 pub async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl Responder {
+    if !is_valid_name(&form.name) {
+        return HttpResponse::BadRequest().finish();
+    }
     match insert_subscriber(&pool, &form).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
+}
+
+pub fn is_valid_name(s: &str) -> bool {
+    let is_empty_or_whitespace = s.trim().is_empty();
+
+    let is_too_long = s.graphemes(true).count() > 256;
+
+    let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
+    let containes_forbidden_charachters = s.chars().any(|c| forbidden_characters.contains(&c));
+
+    !(is_empty_or_whitespace || is_too_long || containes_forbidden_charachters)
 }
 
 #[tracing::instrument(
