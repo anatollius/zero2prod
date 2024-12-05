@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.6.0"
+anyhow = "1"
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 claims = "0.7"
 config = { git = "https://github.com/mehcode/config-rs.git" }
@@ -15,6 +16,7 @@ secrecy = { version = "0.8", features = ["serde"] }
 serde = { version = "1.0.203", features = ["derive"] }
 serde-aux = "4"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
+thiserror = "1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-actix-web = "0.7"
