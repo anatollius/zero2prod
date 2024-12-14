@@ -40,8 +40,7 @@ pub async fn validate_credentials(
     .context("Failed to spawn blocking task")
     .map_err(AuthError::UnexpectedError)??;
 
-    Ok(user_id
-        .ok_or_else(|| AuthError::InvalidCredentials(anyhow::anyhow!("Unknown username.")))?)
+    user_id.ok_or_else(|| AuthError::InvalidCredentials(anyhow::anyhow!("Unknown username.")))
 }
 
 #[tracing::instrument(name = "Get stored credentials", skip(username, pool))]
@@ -69,7 +68,7 @@ fn verify_password_hash(
     expected_password_hash: Secret<String>,
     password_candidate: Secret<String>,
 ) -> Result<(), AuthError> {
-    let expected_password_hash = PasswordHash::new(&expected_password_hash.expose_secret())
+    let expected_password_hash = PasswordHash::new(expected_password_hash.expose_secret())
         .context("Failed to parse hash in PHC format")
         .map_err(AuthError::UnexpectedError)?;
 

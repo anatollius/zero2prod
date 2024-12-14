@@ -9,6 +9,7 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
+    pub redis_uri: Secret<String>,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -65,6 +66,9 @@ impl EmailClientSettings {
         std::time::Duration::from_millis(self.timeout_milliseconds)
     }
 }
+
+// #[derive(serde::Deserialize, Clone)]
+// pub struct
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
