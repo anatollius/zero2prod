@@ -1,5 +1,6 @@
-use crate::authentication::{self, get_username, validate_credentials, AuthError, Credentials};
-use crate::session_state::TypedSession;
+use crate::authentication::{
+    self, get_username, validate_credentials, AuthError, Credentials, UserId,
+};
 use crate::utils::{e500, see_other};
 use actix_web::{web, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
@@ -15,15 +16,10 @@ pub struct FormData {
 
 pub async fn change_password(
     form: web::Form<FormData>,
-    session: TypedSession,
     pool: web::Data<PgPool>,
+    user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let user_id = session.get_user_id().map_err(e500)?;
-
-    if user_id.is_none() {
-        return Ok(see_other("/login"));
-    }
-    let user_id = user_id.unwrap();
+    let user_id = user_id.into_inner();
 
     if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
         FlashMessage::error(
@@ -34,7 +30,7 @@ pub async fn change_password(
         return Ok(see_other("/admin/password"));
     }
 
-    let username = get_username(user_id, &pool).await.map_err(e500)?;
+    let username = get_username(*user_id, &pool).await.map_err(e500)?;
 
     let credentials = Credentials {
         username,
@@ -60,7 +56,7 @@ pub async fn change_password(
         return Ok(see_other("/admin/password"));
     }
 
-    authentication::change_password(user_id, form.0.new_password, &pool)
+    authentication::change_password(*user_id, form.0.new_password, &pool)
         .await
         .map_err(e500)?;
 
