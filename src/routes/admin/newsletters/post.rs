@@ -1,7 +1,8 @@
 use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
-use crate::utils::{e500, see_other};
+use crate::idempotency::{get_saved_response, save_response, IdempotencyKey};
+use crate::utils::{e400, e500, see_other};
 use actix_web::{web, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
 use anyhow::Context;
@@ -12,6 +13,7 @@ pub struct FormData {
     title: String,
     html_content: String,
     text_content: String,
+    idempotency_key: String,
 }
 
 #[tracing::instrument(
@@ -25,7 +27,23 @@ pub async fn publish_newsletter(
     email_client: web::Data<EmailClient>,
     user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    match validate_newsletter(&form) {
+    let FormData {
+        title,
+        text_content,
+        html_content,
+        idempotency_key,
+    } = form.0;
+    let idempotency_key = IdempotencyKey::try_from(idempotency_key).map_err(e400)?;
+
+    if let Some(saved_response) = get_saved_response(&pool, &idempotency_key, **user_id)
+        .await
+        .map_err(e500)?
+    {
+        FlashMessage::info("The newsletter issue has been published!").send();
+        return Ok(saved_response);
+    }
+
+    match validate_newsletter(&title, &html_content, &text_content) {
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
             return Ok(see_other("/admin/newsletters"));
@@ -33,15 +51,12 @@ pub async fn publish_newsletter(
         _ => {}
     };
 
-    let subscribers = get_confirmed_subscribers(&pool)
-        .await
-        .context("Failed to get subscribers from the database.")
-        .map_err(e500)?;
+    let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
 
     for subscriber in subscribers {
         match subscriber {
             Ok(email) => email_client
-                .send_email(&email, &form.title, &form.html_content, &form.text_content)
+                .send_email(&email, &title, &html_content, &text_content)
                 .await
                 .with_context(|| format!("Failed to send newsletter issue to {}", &email))
                 .map_err(e500)?,
@@ -53,15 +68,19 @@ pub async fn publish_newsletter(
     }
 
     FlashMessage::info("The newsletter issue has been published!").send();
-    Ok(see_other("/admin/newsletters"))
+    let response = see_other("/admin/newsletters");
+    let response = save_response(&pool, &idempotency_key, **user_id, response)
+        .await
+        .map_err(e500)?;
+    Ok(response)
 }
 
-fn validate_newsletter(newsletter: &FormData) -> Result<(), anyhow::Error> {
-    if newsletter.title.len() == 0 {
+fn validate_newsletter(title: &str, html: &str, text: &str) -> Result<(), anyhow::Error> {
+    if title.len() == 0 {
         Err(anyhow::anyhow!("Title must not be empty"))
-    } else if newsletter.html_content.len() == 0 {
+    } else if html.len() == 0 {
         Err(anyhow::anyhow!("HTML content must not be empty"))
-    } else if newsletter.text_content.len() == 0 {
+    } else if text.len() == 0 {
         Err(anyhow::anyhow!("Text content must not be empty"))
     } else {
         Ok(())
@@ -71,10 +90,11 @@ fn validate_newsletter(newsletter: &FormData) -> Result<(), anyhow::Error> {
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
 async fn get_confirmed_subscribers(
     pool: &PgPool,
-) -> Result<Vec<Result<SubscriberEmail, anyhow::Error>>, sqlx::Error> {
+) -> Result<Vec<Result<SubscriberEmail, anyhow::Error>>, anyhow::Error> {
     let rows = sqlx::query!("SELECT email FROM subscriptions WHERE status = 'confirmed';")
         .fetch_all(pool)
-        .await?;
+        .await
+        .context("Failed to get subscribers from the database.")?;
 
     let confirmed_subscribers = rows
         .into_iter()
