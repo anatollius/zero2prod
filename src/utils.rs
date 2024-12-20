@@ -1,5 +1,4 @@
 use actix_web::http::header::LOCATION;
-use actix_web::http::StatusCode;
 use actix_web::HttpResponse;
 
 pub fn e400<T>(e: T) -> actix_web::Error
